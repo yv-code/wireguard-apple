@@ -401,7 +401,12 @@ public class WireGuardAdapter {
             switch result {
             case .success((let sourceEndpoint, let resolvedEndpoint)):
                 if sourceEndpoint.host == resolvedEndpoint.host {
-                    self.logHandler(.verbose, "DNS64: mapped \(sourceEndpoint.host) to itself.")
+                    if resolvedEndpoint.shouldConvertIP4P, case .ipv6(let ipv6Address) = resolvedEndpoint.host {
+                        let (ip4pAddress, ip4pPort) = resolvedEndpoint.convertIP4P(ipv6Address: ipv6Address)
+                        self.logHandler(.verbose, "IP4P: mapped \(sourceEndpoint.host) to \(ip4pAddress):\(ip4pPort).")
+                    } else {
+                        self.logHandler(.verbose, "DNS64: mapped \(sourceEndpoint.host) to itself.")
+                    }
                 } else {
                     self.logHandler(.verbose, "DNS64: mapped \(sourceEndpoint.host) to \(resolvedEndpoint.host)")
                 }

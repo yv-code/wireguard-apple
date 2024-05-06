@@ -32,7 +32,8 @@ class PacketTunnelSettingsGenerator {
             let result = resolvedEndpoint.map(Self.reresolveEndpoint)
             if case .success((_, let resolvedEndpoint)) = result {
                 if case .name = resolvedEndpoint.host { assert(false, "Endpoint is not resolved") }
-                wgSettings.append("endpoint=\(resolvedEndpoint.stringRepresentation)\n")
+                let actualEndpoint = parseIP4PEndpoint(resolvedEndpoint: resolvedEndpoint)
+                wgSettings.append("endpoint=\(actualEndpoint.stringRepresentation)\n")
             }
             resolutionResults.append(result)
         }
@@ -60,7 +61,8 @@ class PacketTunnelSettingsGenerator {
             let result = resolvedEndpoint.map(Self.reresolveEndpoint)
             if case .success((_, let resolvedEndpoint)) = result {
                 if case .name = resolvedEndpoint.host { assert(false, "Endpoint is not resolved") }
-                wgSettings.append("endpoint=\(resolvedEndpoint.stringRepresentation)\n")
+                let actualEndpoint = parseIP4PEndpoint(resolvedEndpoint: resolvedEndpoint)
+                wgSettings.append("endpoint=\(actualEndpoint.stringRepresentation)\n")
             }
             resolutionResults.append(result)
 
@@ -125,6 +127,22 @@ class PacketTunnelSettingsGenerator {
         networkSettings.ipv6Settings = ipv6Settings
 
         return networkSettings
+    }
+
+    private func parseIP4PEndpoint(resolvedEndpoint: Endpoint) -> Endpoint {
+        if resolvedEndpoint.shouldConvertIP4P, case .ipv6(let ipv6Address) = resolvedEndpoint.host {
+            let (ip4pAddress, ip4pPort) = resolvedEndpoint.convertIP4P(ipv6Address: ipv6Address)
+            let ip4pEndpoint = Endpoint(host: .ipv4(IPv4Address(ip4pAddress)!), port: NWEndpoint.Port(ip4pPort)!)
+            if case .ipv4 = ip4pEndpoint.host {
+                wg_log(.info, message: "IP4P parsed endpoint: \(ip4pAddress):\(ip4pPort)")
+                return ip4pEndpoint
+            } else {
+                wg_log(.info, message: "IP4P parse failure:\n raw IPv6 \(resolvedEndpoint.stringRepresentation)\n IP4P parsed result \(ip4pAddress):\(ip4pPort)")
+                return resolvedEndpoint
+            }
+        } else {
+            return resolvedEndpoint
+        }
     }
 
     private func addresses() -> ([NEIPv4Route], [NEIPv6Route]) {

@@ -70,6 +70,36 @@ extension Endpoint {
         host = NWEndpoint.Host(hostString)
         port = endpointPort
     }
+
+    public var shouldConvertIP4P: Bool {
+        // Endpoint with port 0 means use IP4P
+        return self.port.rawValue == 0
+    }
+
+    public func convertIP4P(ipv6Address: IPv6Address) -> (String, String) {
+
+        let originIPv6 = ("[\(ipv6Address)]", "\(port)")
+
+        let addressParts = "\(ipv6Address)".split(separator: ":")
+        guard addressParts.count >= 4, addressParts[0] == "2001",
+              let port = UInt16(addressParts[1], radix: 16),
+              let ipv4Hi16 = UInt16(addressParts[2], radix: 16),
+              let ipv4Lo16 = UInt16(addressParts[3], radix: 16) else {
+              return originIPv6  // Invalid format or unable to parse components
+        }
+
+        // Convert segments to IPv4 string
+        let ipv4Part1 = ipv4Hi16 >> 8
+        let ipv4Part2 = ipv4Hi16 & 0xFF
+        let ipv4Part3 = ipv4Lo16 >> 8
+        let ipv4Part4 = ipv4Lo16 & 0xFF
+        let ipv4String = "\(ipv4Part1).\(ipv4Part2).\(ipv4Part3).\(ipv4Part4)"
+
+        guard IPv4Address(ipv4String) != nil else {
+            return originIPv6
+        }
+        return (ipv4String, "\(port)")
+    }
 }
 
 extension Endpoint {
